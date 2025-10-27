@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cricket Team Scorer </title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; max-width:900px; }
+    h1 { font-size: 1.4rem; margin-bottom: 6px; }
+    p { margin-top:0; color:#333; }
+    label { display:block; margin-top:12px; font-weight:600; }
+    .selectors { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px;}
+    .player-row { display:flex; gap:8px; align-items:center; }
+    select { width:100%; padding:8px; border-radius:6px; border:1px solid #ccc; }
+    button { margin-top:12px; padding:10px 14px; border-radius:8px; border:none; cursor:pointer; background:#0066cc; color:#fff; font-weight:600; }
+    #result { margin-top:16px; padding:12px; border-radius:8px; background:#f7f7f7; border:1px solid #eee; }
+    .player-score { color:#0a7; font-weight:700; margin-left:8px; }
+    .error { color:#c00; font-weight:700; }
+    .small { font-size:0.9rem; color:#555; }
+  </style>
+</head>
+<body>
+  <h1>Cricket Team Scorer</h1>
+    <label for="teamName">Team Name</label>
+  <input id="teamName" type="text" placeholder="e.g., Dream XI" style="padding:8px;width:100%;border-radius:6px;border:1px solid #ccc;" />
+
+  <label>Pick 11 players</label>
+  <div id="selectors" class="selectors"></div>
+
+  <button id="calcBtn">Calculate Team Score</button>
+
+  <div id="result"></div>
+
+<script>
+/*
+  players[]:
+  - first 100 entries have realistic ratings (0-10) assigned here.
+  - remaining entries have rating: null and will be assigned random integer 5..9 at load.
+  - dropdowns show only name.
+*/
+
+const players = [
+  // --- Top 100 (realistic ratings, estimated) ---
+  { name: "Virat Kohli", rating: 9.6 },
+  { name: "Jasprit Bumrah", rating: 9.5 },
+  { name: "Rohit Sharma", rating: 9.2 },
+  { name: "Suryakumar Yadav", rating: 9.1 },
+  { name: "Hardik Pandya", rating: 8.9 },
+  { name: "Shubman Gill", rating: 8.9 },
+  { name: "Rashid Khan", rating: 9.0 },
+  { name: "Pat Cummins", rating: 8.8 },
+  { name: "Shubman Gill", rating: 8.9 }, // duplicate intentional? removing duplicates later; keep as name only
+  { name: "Heinrich Klaasen", rating: 8.4 },
+  { name: "Axar Patel", rating: 8.2 },
+  { name: "Kuldeep Yadav", rating: 8.1 },
+  { name: "Ravindra Jadeja", rating: 8.7 },
+  { name: "Ruturaj Gaikwad", rating: 8.0 },
+  { name: "Matheesha Pathirana", rating: 8.3 },
+  { name: "Shivam Dube", rating: 7.6 },
+  { name: "MS Dhoni", rating: 7.8 },
+  { name: "Jitesh Sharma", rating: 7.5 },
+  { name: "Tristan Stubbs", rating: 7.4 },
+  { name: "Rinku Singh", rating: 7.9 },
+  { name: "Varun Chakravarthy", rating: 7.8 },
+  { name: "Sunil Narine", rating: 8.0 },
+  { name: "Andre Russell", rating: 8.1 },
+  { name: "Sanju Samson", rating: 8.3 },
+  { name: "Yashasvi Jaiswal", rating: 8.6 },
+  { name: "Riyan Parag", rating: 7.0 },
+  { name: "Dhruv Jurel", rating: 7.1 },
+  { name: "Shimron Hetmyer", rating: 7.9 },
+  { name: "Sandeep Sharma", rating: 6.6 },
+  { name: "Shubman Gill", rating: 8.9 }, // another repeated mention — OK, rating same
+  { name: "Sai Sudharsan", rating: 7.2 },
+  { name: "Rahul Tewatia", rating: 7.0 },
+  { name: "M Shahrukh Khan", rating: 6.5 },
+  { name: "Nicholas Pooran", rating: 7.6 },
+  { name: "Ravi Bishnoi", rating: 7.4 },
+  { name: "Mayank Yadav", rating: 7.3 },
+  { name: "Mohsin Khan", rating: 6.7 },
+  { name: "Ayush Badoni", rating: 6.8 },
+  { name: "Shashank Singh", rating: 6.2 },
+  { name: "Prabhsimran Singh", rating: 6.1 },
+  { name: "Jos Buttler", rating: 9.0 },
+  { name: "Shreyas Iyer", rating: 8.2 },
+  { name: "Rishabh Pant", rating: 7.9 },
+  { name: "KL Rahul", rating: 8.3 },
+  { name: "Mohammed Shami", rating: 8.0 },
+  { name: "Mohammed Siraj", rating: 7.8 },
+  { name: "Harry Brook", rating: 7.7 },
+  { name: "Devon Conway", rating: 7.4 },
+  { name: "Jake Fraser-McGurk", rating: 6.3 },
+  { name: "Aiden Markram", rating: 7.5 },
+  { name: "Devdutt Padikkal", rating: 6.9 },
+  { name: "Rahul Tripathi", rating: 6.8 },
+  { name: "David Warner", rating: 7.0 },
+  { name: "Ravichandran Ashwin", rating: 7.6 },
+  { name: "Venkatesh Iyer", rating: 7.3 },
+  { name: "Mitchell Marsh", rating: 7.4 },
+  { name: "Glenn Maxwell", rating: 7.6 },
+  { name: "Harshal Patel", rating: 6.9 },
+  { name: "Rachin Ravindra", rating: 7.0 },
+  { name: "Marcus Stoinis", rating: 6.7 },
+  { name: "Jonny Bairstow", rating: 7.5 },
+  { name: "Quinton de Kock", rating: 7.1 },
+  { name: "Rahmanullah Gurbaz", rating: 6.8 },
+  { name: "Ishan Kishan", rating: 7.0 },
+  { name: "Phil Salt", rating: 6.9 },
+  { name: "Khaleel Ahmed", rating: 6.6 },
+  { name: "Trent Boult", rating: 7.2 },
+  { name: "Josh Hazlewood", rating: 7.1 },
+  { name: "Avesh Khan", rating: 6.4 },
+  { name: "Prasidh Krishna", rating: 6.6 },
+  { name: "T Natarajan", rating: 6.8 },
+  { name: "Anrich Nortje", rating: 7.0 },
+  { name: "Noor Ahmad", rating: 6.3 },
+  { name: "Rahul Chahar", rating: 6.5 },
+  { name: "Wanindu Hasaranga", rating: 7.2 },
+  { name: "Maheesh Theekshana", rating: 6.4 },
+  { name: "Adam Zampa", rating: 6.5 },
+  { name: "Abhinav Manohar", rating: 5.9 },
+  { name: "Karun Nair", rating: 5.8 },
+  { name: "Anmolpreet Singh", rating: 5.7 },
+  { name: "Nehal Wadhera", rating: 5.6 },
+  { name: "Harpreet Brar", rating: 5.8 },
+  { name: "Mahipal Lomror", rating: 6.0 },
+  { name: "Sameer Rizvi", rating: 5.5 },
+  { name: "Nishant Sindhu", rating: 5.4 },
+  { name: "Utkarsh Singh", rating: 5.3 },
+  { name: "Aryan Juyal", rating: 5.3 },
+  { name: "Kumar Kushagra", rating: 5.2 },
+  { name: "Anuj Rawat", rating: 5.7 },
+  { name: "Luvnith Sisodia", rating: 5.1 },
+
+  // At this point we have ~100 entries (some duplicates by name were in original input — duplicates keep same rating)
+  // --- Remaining players (rating: null) — random 5..9 will be assigned at load ---
+  { name: "Vishnu Vinod", rating: null },
+  { name: "Upendra Yadav", rating: null },
+  { name: "Vaibhav Arora", rating: null },
+  { name: "Rasikh Salam", rating: null },
+  { name: "Akash Madhwal", rating: null },
+  { name: "Mohit Sharma", rating: null },
+  { name: "Simarjeet Singh", rating: null },
+  { name: "Yash Thakur", rating: null },
+  { name: "Kartik Tyagi", rating: null },
+  { name: "Vijaykumar Vyshak", rating: null },
+  { name: "Piyush Chawla", rating: null },
+  { name: "Shreyas Gopal", rating: null },
+  { name: "Mayank Markande", rating: null },
+  { name: "Suyash Sharma", rating: null },
+  { name: "Karn Sharma", rating: null },
+  { name: "Kumar Kartikeya", rating: null },
+  { name: "Manav Suthar", rating: null },
+  { name: "Mayank Agarwal", rating: null },
+  { name: "Faf du Plessis", rating: null },
+  { name: "Glenn Phillips", rating: null },
+  { name: "Rovman Powell", rating: null },
+  { name: "Ajinkya Rahane", rating: null },
+  { name: "Prithvi Shaw", rating: null },
+  { name: "Kane Williamson", rating: null },
+  { name: "Sam Curran", rating: null },
+  { name: "Marco Jansen", rating: null },
+  { name: "Daryl Mitchell", rating: null },
+  { name: "Krunal Pandya", rating: null },
+  { name: "Nitish Rana", rating: null },
+  { name: "Washington Sundar", rating: null },
+  { name: "Shardul Thakur", rating: null },
+  { name: "Srikar Bharat", rating: null },
+  { name: "Alex Carey", rating: null },
+  { name: "Donovan Ferreira", rating: null },
+  { name: "Shai Hope", rating: null },
+  { name: "Josh Inglis", rating: null },
+  { name: "Ryan Rickelton", rating: null },
+  { name: "Deepak Chahar", rating: null },
+  { name: "Gerald Coetzee", rating: null },
+  { name: "Akash Deep", rating: null },
+  { name: "Tushar Deshpande", rating: null },
+  { name: "Lockie Ferguson", rating: null },
+  { name: "Bhuvneshwar Kumar", rating: null },
+  { name: "Mukesh Kumar", rating: null },
+  { name: "AM Ghazanfar", rating: null },
+  { name: "Akeal Hosein", rating: null },
+  { name: "Keshav Maharaj", rating: null },
+  { name: "Mujeeb Ur Rahman", rating: null },
+  { name: "Adil Rashid", rating: null },
+  { name: "Vijayakanth Viyaskanth", rating: null },
+  { name: "Ricky Bhui", rating: null },
+  { name: "Swastik Chikara", rating: null },
+  { name: "Aarya Desai", rating: null },
+  { name: "Shubham Dubey", rating: null },
+  { name: "Madhav Kaushik", rating: null },
+  { name: "Pukhraj Mann", rating: null },
+  { name: "Shaik Rasheed", rating: null },
+  { name: "Himmat Singh", rating: null },
+  { name: "Mayank Dagar", rating: null },
+  { name: "Anshul Kamboj", rating: null },
+  { name: "Arshad Khan", rating: null },
+  { name: "Aravelly Avanish", rating: null },
+  { name: "Vansh Bedi", rating: null },
+  { name: "Saurav Chauhan", rating: null },
+  { name: "Harvik Desai", rating: null },
+  { name: "Tom Kohler-Cadmore", rating: null },
+  { name: "Kunal Singh Rathore", rating: null },
+  { name: "BR Sharath", rating: null },
+  { name: "Gurnoor Brar", rating: null },
+  { name: "Mukesh Choudhary", rating: null },
+  { name: "Sakib Hussain", rating: null },
+  { name: "Vidwath Kaverappa", rating: null },
+  { name: "Rajan Kumar", rating: null },
+  { name: "Sushant Mishra", rating: null },
+  { name: "Arjun Tendulkar", rating: null },
+  { name: "Zeeshan Ansari", rating: null },
+  { name: "Prince Choudhary", rating: null },
+  { name: "Himanshu Sharma", rating: null },
+  { name: "Manimaran Siddharth", rating: null },
+  { name: "Digvesh Rathi", rating: null },
+  { name: "Prashant Solanki", rating: null },
+  { name: "Jhathavedh Subramanyan", rating: null },
+  { name: "Finn Allen", rating: null },
+  { name: "Dewald Brevis", rating: null },
+  { name: "Ben Duckett", rating: null },
+  { name: "Manish Pandey", rating: null },
+  { name: "Rilee Rossouw", rating: null },
+  { name: "Sherfane Rutherford", rating: null },
+  { name: "Ashton Turner", rating: null },
+  { name: "James Vince", rating: null },
+  { name: "Shahbaz Ahmed", rating: null },
+  { name: "Moeen Ali", rating: null },
+  { name: "Tim David", rating: null },
+  { name: "Deepak Hooda", rating: null },
+  { name: "Will Jacks", rating: null },
+  { name: "Azmatullah Omarzai", rating: null },
+  { name: "Sai Kishore", rating: null },
+  { name: "Romario Shepherd", rating: null },
+  { name: "Tom Banton", rating: null },
+  { name: "Sam Billings", rating: null },
+  { name: "Jordan Cox", rating: null },
+  { name: "Ben McDermott", rating: null },
+  { name: "Kusal Mendis", rating: null },
+  { name: "Kusal Perera", rating: null },
+  { name: "Josh Philippe", rating: null },
+  { name: "Tim Seifert", rating: null },
+  { name: "Nandre Burger", rating: null },
+  { name: "Spencer Johnson", rating: null },
+  { name: "Umran Malik", rating: null },
+  { name: "Mustafizur Rahman", rating: null },
+  { name: "Ishant Sharma", rating: null },
+  { name: "Nuwan Thushara", rating: null },
+  { name: "Naveen-ul-Haq", rating: null },
+  { name: "Jaydev Unadkat", rating: null },
+  { name: "Umesh Yadav", rating: null },
+  { name: "Rishad Hossain", rating: null },
+  { name: "Zahir Khan", rating: null },
+  { name: "Nqabayomzi Peter", rating: null },
+  { name: "Tanveer Sangha", rating: null },
+  { name: "Tabraiz Shamsi", rating: null },
+  { name: "Jeffrey Vandersay", rating: null },
+  { name: "Sachin Baby", rating: null },
+  { name: "Priyam Garg", rating: null },
+  { name: "Harnoor Singh", rating: null },
+  { name: "Ravichandran Smaran", rating: null },
+  { name: "Shashwat Rawat", rating: null },
+  { name: "C Andre Siddarth", rating: null },
+  { name: "Avneesh Sudha", rating: null },
+  { name: "Apoorv Wankhade", rating: null },
+  { name: "Yudhvir Singh", rating: null },
+  { name: "Rishi Dhawan", rating: null },
+  { name: "Rajvardhan Hangargekar", rating: null },
+  { name: "Tanush Kotian", rating: null },
+  { name: "Arshin Kulkarni", rating: null },
+  { name: "Shams Mulani", rating: null },
+  { name: "Shivam Singh", rating: null },
+  { name: "Lalit Yadav", rating: null },
+  { name: "Mohammed Azharuddeen", rating: null },
+  { name: "LR Chethan", rating: null },
+  { name: "Aryaman Singh", rating: null },
+  { name: "Urvil Patel", rating: null },
+  { name: "Sanskar Rawat", rating: null },
+  { name: "Bipin Saurabh", rating: null },
+  { name: "Tanay Thyagarajan", rating: null },
+  { name: "Money Grewal", rating: null },
+  { name: "Ashwani Kumar", rating: null },
+  { name: "Ishan Porel", rating: null },
+  { name: "Abhilash Shetty", rating: null },
+  { name: "Akash Singh", rating: null },
+  { name: "Gurjapneet Singh", rating: null },
+  { name: "Basil Thampi", rating: null },
+  { name: "Murugan Ashwin", rating: null },
+  { name: "Shreyas Chavan", rating: null },
+  { name: "Chintal Gandhi", rating: null },
+  { name: "Raghav Goyal", rating: null },
+  { name: "Jagadeesha Suchith", rating: null },
+  { name: "Roshan Waghsare", rating: null },
+  { name: "Bailapudi Yeswanth", rating: null },
+  { name: "Sediqullah Atal", rating: null },
+  { name: "Matthew Breetzke", rating: null },
+  { name: "Mark Chapman", rating: null },
+  { name: "Brandon King", rating: null },
+  { name: "Evin Lewis", rating: null },
+  { name: "Pathum Nissanka", rating: null },
+  { name: "Bhanuka Rajapaksa", rating: null },
+  { name: "Steven Smith", rating: null },
+  { name: "Gus Atkinson", rating: null },
+  { name: "Tom Curran", rating: null },
+  { name: "Krishnappa Gowtham", rating: null },
+  { name: "Mohammad Nabi", rating: null },
+  { name: "Gulbadin Naib", rating: null },
+  { name: "Sikandar Raza", rating: null },
+  { name: "Mitchell Santner", rating: null },
+  { name: "Jayant Yadav", rating: null },
+  { name: "Johnson Charles", rating: null },
+  { name: "Liton Das", rating: null },
+  { name: "Andre Fletcher", rating: null },
+  { name: "Tom Latham", rating: null },
+  { name: "Ollie Pope", rating: null },
+  { name: "Kyle Verreynne", rating: null },
+  { name: "Fazalhaq Farooqi", rating: null },
+  { name: "Richard Gleeson", rating: null },
+  { name: "Matt Henry", rating: null },
+  { name: "Alzarri Joseph", rating: null },
+  { name: "Kwena Maphaka", rating: null },
+  { name: "Kuldeep Sen", rating: null },
+  { name: "Reece Topley", rating: null },
+  { name: "Lizaad Williams", rating: null },
+  { name: "Luke Wood", rating: null },
+  { name: "Sachin Dhas", rating: null },
+  { name: "Leus du Plooy", rating: null },
+  { name: "Ashwin Hebbar", rating: null },
+  { name: "Rohan Kunnummal", rating: null },
+  { name: "Ayush Pandey", rating: null },
+  { name: "Akshat Raghuwanshi", rating: null },
+  { name: "Shoun Roger", rating: null },
+  { name: "Virat Singh", rating: null },
+  { name: "Priyansh Arya", rating: null },
+  { name: "Manoj Bhandage", rating: null },
+  { name: "Praveen Dubey", rating: null },
+  { name: "Ajay Mandal", rating: null },
+  { name: "Prerak Mankad", rating: null },
+  { name: "Vipraj Nigam", rating: null },
+  { name: "Vicky Ostwal", rating: null },
+  { name: "Shivalik Sharma", rating: null },
+  { name: "Salil Arora", rating: null },
+  { name: "Dinesh Bana", rating: null },
+  { name: "G Ajitesh", rating: null },
+  { name: "Narayan Jagadeesan", rating: null },
+  { name: "Krishnan Shrijith", rating: null },
+  { name: "Michael Pepper", rating: null },
+  { name: "Vishnu Solanki", rating: null },
+  { name: "KM Asif", rating: null },
+  { name: "Akhil Chaudhary", rating: null },
+  { name: "Himanshu Chauhan", rating: null },
+  { name: "Arpit Guleria", rating: null },
+  { name: "Saranu Nishanth", rating: null },
+  { name: "Kuldip Yadav", rating: null },
+  { name: "Prithvi Raj", rating: null },
+  { name: "Shubham Agarwal", rating: null },
+  { name: "Jasinder Singh", rating: null },
+  { name: "Jasmer Dhankhar", rating: null },
+  { name: "Pulkit Narang", rating: null },
+  { name: "Saumy Pandey", rating: null },
+  { name: "Mohit Rathee", rating: null },
+  { name: "Himanshu Singh", rating: null },
+  { name: "Towhid Hridoy", rating: null },
+  { name: "Mikyle Louis", rating: null },
+  { name: "Harry Tector", rating: null },
+  { name: "Rassie van der Dussen", rating: null },
+  { name: "Will Young", rating: null },
+  { name: "Najibullah Zadran", rating: null },
+  { name: "Ibrahim Zadran", rating: null },
+  { name: "Sean Abbott", rating: null },
+  { name: "Jacob Bethell", rating: null },
+  { name: "Brydon Carse", rating: null },
+  { name: "Aaron Hardie", rating: null },
+  { name: "Sarfaraz Khan", rating: null },
+  { name: "Kyle Mayers", rating: null },
+  { name: "Kamindu Mendis", rating: null },
+  { name: "Matthew Short", rating: null },
+  { name: "Jason Behrendorff", rating: null },
+  { name: "Dushmantha Chameera", rating: null },
+  { name: "Nathan Ellis", rating: null },
+  { name: "Shamar Joseph", rating: null },
+  { name: "Josh Little", rating: null },
+  { name: "Shivam Mavi", rating: null },
+  { name: "Jhye Richardson", rating: null },
+  { name: "Navdeep Saini", rating: null },
+  { name: "Tanmay Agarwal", rating: null },
+  { name: "Amandeep Khare", rating: null },
+  { name: "Ayush Mhatre", rating: null },
+  { name: "Salman Nizar", rating: null },
+  { name: "Aniket Verma", rating: null },
+  { name: "Sumeet Verma", rating: null },
+  { name: "Manan Vohra", rating: null },
+  { name: "Samarth Vyas", rating: null },
+  { name: "Raj Bawa", rating: null },
+  { name: "Emanjot Singh Chahal", rating: null },
+  { name: "Musheer Khan", rating: null },
+  { name: "Manvanth Kumar", rating: null },
+  { name: "Mayank Rawat", rating: null },
+  { name: "Suryansh Shedge", rating: null },
+  { name: "Hrithik Shokeen", rating: null },
+  { name: "Sonu Yadav", rating: null },
+  { name: "Rithik Easwaran", rating: null },
+  { name: "Anmol Malhotra", rating: null },
+  { name: "Pradosh Ranjan Paul", rating: null },
+  { name: "Karteek Sharma", rating: null },
+  { name: "Khushal Gabhane", rating: null },
+  { name: "Siddarth Yadav", rating: null },
+  { name: "Saurabh Dubey", rating: null },
+  { name: "Aaqib Khan", rating: null },
+  { name: "Kulwant Khejroliya", rating: null },
+  { name: "Ankit Rajpoot", rating: null },
+  { name: "Divesh Sharma", rating: null },
+  { name: "Naman Tiwari", rating: null },
+  { name: "Prince Yadav", rating: null },
+  { name: "Kunal Singh Chibb", rating: null },
+  { name: "Yuvraj Chudasama", rating: null },
+  { name: "Deepak Devadiga", rating: null },
+  { name: "Ramesh Prasad", rating: null },
+  { name: "Shivam Shukla", rating: null },
+  { name: "Himanshu Singh (another)", rating: null },
+  { name: "Tejpreet Singh", rating: null },
+  { name: "Qais Ahmad", rating: null },
+  { name: "Charith Asalanka", rating: null },
+  { name: "Michael Bracewell", rating: null },
+  { name: "Gudakesh Motie", rating: null },
+  { name: "Dan Mousley", rating: null },
+  { name: "Jamie Overton", rating: null },
+  { name: "Dunith Wellalage", rating: null },
+  { name: "Ottneil Baartman", rating: null },
+  { name: "Xavier Bartlett", rating: null },
+  { name: "Dilshan Madushanka", rating: null },
+  { name: "Adam Milne", rating: null },
+  { name: "Lungi Ngidi", rating: null },
+  { name: "Will O'Rourke", rating: null },
+  { name: "Chetan Sakariya", rating: null },
+  { name: "Sandeep Warrier", rating: null },
+  { name: "Musaif Ajaz", rating: null },
+  { name: "Agni Chopra", rating: null },
+  { name: "Abhimanyu Easwaran", rating: null },
+  { name: "Sudip Kumar Gharami", rating: null },
+  { name: "Shubham Khajuria", rating: null },
+  { name: "Akhil Rawat", rating: null },
+  { name: "Prateek Yadav", rating: null },
+  { name: "Abdul Basith", rating: null },
+  { name: "KC Cariappa", rating: null },
+  { name: "Yuvraj Chaudhary", rating: null },
+  { name: "Aman Khan", rating: null },
+  { name: "Sumit Kumar", rating: null },
+  { name: "Kamlesh Nagarkoti", rating: null },
+  { name: "Hardik Raj", rating: null },
+  { name: "Harsh Tyagi", rating: null },
+  { name: "M Ajnas", rating: null },
+  { name: "Unmukt Chand", rating: null },
+  { name: "Tejasvi Dahiya", rating: null },
+  { name: "Sumit Ghadigaonkar", rating: null },
+  { name: "Baba Indrajith", rating: null },
+  { name: "Muhammed Adnan Khan", rating: null },
+  { name: "Bhagmender Lather", rating: null },
+  { name: "Baltej Singh", rating: null },
+  { name: "Ali Khan", rating: null },
+  { name: "Ravi Kumar", rating: null },
+  { name: "Vineet Panwar", rating: null },
+  { name: "Vidyadhar Patil", rating: null },
+  { name: "Aaradhya Shukla", rating: null },
+  { name: "Abhinandan Singh", rating: null },
+  { name: "Cooper Connolly", rating: null },
+  { name: "Dushan Hemantha", rating: null },
+  { name: "Jason Holder", rating: null },
+  { name: "Karim Janat", rating: null },
+  { name: "James Neesham", rating: null },
+  { name: "Daniel Sams", rating: null },
+  { name: "Will Sutherland", rating: null },
+  { name: "Taskin Ahmed", rating: null },
+  { name: "Ben Dwarshuis", rating: null },
+  { name: "Obed McCoy", rating: null },
+  { name: "Riley Meredith", rating: null },
+  { name: "Lance Morris", rating: null },
+  { name: "Olly Stone", rating: null },
+  { name: "Daniel Worrall", rating: null },
+  { name: "Pyla Avinash", rating: null },
+  { name: "Kiran Chormale", rating: null },
+  { name: "Ashish Dahariya", rating: null },
+  { name: "Tushar Raheja", rating: null },
+  { name: "Sarthak Ranjan", rating: null },
+  { name: "Abhijeet Tomar", rating: null },
+  { name: "Krish Bhagat", rating: null },
+  { name: "Sohraab Dhaliwal", rating: null },
+  { name: "Harsh Dubey", rating: null },
+  { name: "Ramakrishna Ghosh", rating: null },
+  { name: "Raj Limbani", rating: null },
+  { name: "Ninad Rathva", rating: null },
+  { name: "Vivrant Sharma", rating: null },
+  { name: "Shiva Singh", rating: null },
+  { name: "Sayed Irfan Aftab", rating: null },
+  { name: "Anirudh Chowdhary", rating: null },
+  { name: "Siddarth Kaul", rating: null },
+  { name: "Prashant Painkra", rating: null },
+  { name: "Satyanarayana Raju", rating: null },
+  { name: "Yeddala Reddy", rating: null },
+  { name: "Zakary Foulkes", rating: null },
+  { name: "Chris Green", rating: null },
+  { name: "Shakib Al Hasan", rating: null },
+  { name: "Mehidy Hasan Miraz", rating: null },
+  { name: "Wiaan Mulder", rating: null },
+  { name: "Dwaine Pretorius", rating: null },
+  { name: "Dasun Shanaka", rating: null },
+  { name: "Shoriful Islam", rating: null },
+  { name: "Blessing Muzarabani", rating: null },
+  { name: "Matthew Potts", rating: null },
+  { name: "Tanzim Hasan Sakib", rating: null },
+  { name: "Ben Sears", rating: null },
+  { name: "Tim Southee", rating: null },
+  { name: "John Turner", rating: null },
+  { name: "Joshua Brown", rating: null },
+  { name: "Oliver Davies", rating: null },
+  { name: "Bevon Jacobs", rating: null },
+  { name: "Atharva Kale", rating: null },
+  { name: "Abhishek Nair", rating: null },
+  { name: "Vishwanath Pratap Singh", rating: null },
+  { name: "Lone Nasir", rating: null },
+  { name: "Brandon McMullen", rating: null },
+  { name: "Sudhesan Midhun", rating: null },
+  { name: "Abid Mushtaq", rating: null },
+  { name: "Mahesh Pithiya", rating: null },
+  { name: "Maramreddy Reddy", rating: null },
+  { name: "Atit Sheth", rating: null },
+  { name: "Jonty Sidhu", rating: null },
+  { name: "Mohit Avasthi", rating: null },
+  { name: "Faridoon Dawoodzai", rating: null },
+  { name: "Praful Hinge", rating: null },
+  { name: "Pankaj Jaswal", rating: null },
+  { name: "Vijay Kumar", rating: null },
+  { name: "Ashok Sharma", rating: null },
+  { name: "Mujtaba Yousuf", rating: null }
+];
+
+// Ensure unique by name: combine duplicates by keeping first rating encountered for name
+(function dedupePlayers() {
+  const seen = new Map();
+  const dedup = [];
+  for (const p of players) {
+    const key = p.name.trim();
+    if (!seen.has(key)) {
+      seen.set(key, true);
+      dedup.push(p);
+    } else {
+      // duplicate — ignore additional instance
+    }
+  }
+  // Replace global players array content
+  players.length = 0;
+  dedup.forEach(x => players.push(x));
+})();
+
+// Now players array length should be 243 (as per input). If not, we still proceed.
+console.log("Total players loaded:", players.length);
+
+// assign random ratings (5..9 integer) for those with null rating
+function assignRandomForRemaining() {
+  for (let p of players) {
+    if (p.rating === null || p.rating === undefined) {
+      // random integer between 5 and 9 inclusive
+      p.rating = Math.floor(Math.random() * 5) + 5;
+    } else {
+      // round ratings to one decimal for display
+      p.rating = Math.round(p.rating * 10) / 10;
+    }
+  }
+}
+
+// create 11 selectors
+const selectorsDiv = document.getElementById('selectors');
+const selectorCount = 11;
+
+function createSelector(idx) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'player-row';
+  const sel = document.createElement('select');
+  sel.id = 'player-' + idx;
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.text = '— Select player ' + (idx+1) + ' —';
+  sel.appendChild(defaultOption);
+
+  // populate options (names only)
+  players.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.name;
+    o.text = p.name;
+    sel.appendChild(o);
+  });
+
+  wrapper.appendChild(sel);
+  return wrapper;
+}
+
+for (let i=0;i<selectorCount;i++){
+  selectorsDiv.appendChild(createSelector(i));
+}
+
+// enforce uniqueness: when one selector changes, remove that name from other selectors' available options
+function enforceUniqueSelections() {
+  const chosen = new Set();
+  for (let i=0;i<selectorCount;i++){
+    const v = document.getElementById('player-'+i).value;
+    if (v) chosen.add(v);
+  }
+
+  // update disable state of options across selectors
+  for (let i=0;i<selectorCount;i++){
+    const sel = document.getElementById('player-'+i);
+    for (let optIndex=0; optIndex < sel.options.length; optIndex++){
+      const opt = sel.options[optIndex];
+      if (!opt.value) continue; // placeholder
+      // allow option if either not chosen, or chosen by this selector
+      if (chosen.has(opt.value) && sel.value !== opt.value) {
+        opt.disabled = true;
+      } else {
+        opt.disabled = false;
+      }
+    }
+  }
+}
+
+// attach change listeners
+for (let i=0;i<selectorCount;i++){
+  document.getElementById('player-'+i).addEventListener('change', enforceUniqueSelections);
+}
+
+// run random assignment for remaining players now
+assignRandomForRemaining();
+
+// calculation
+document.getElementById('calcBtn').addEventListener('click', () => {
+  const teamName = (document.getElementById('teamName').value || 'Unnamed Team').trim();
+  const chosen = [];
+  for (let i=0;i<selectorCount;i++){
+    const v = document.getElementById('player-'+i).value;
+    if (!v) {
+      document.getElementById('result').innerHTML = '<div class="error">Please select 11 players (some selections are empty).</div>';
+      return;
+    }
+    chosen.push(v);
+  }
+  // ensure uniqueness
+  const setChosen = new Set(chosen);
+  if (setChosen.size !== chosen.length) {
+    document.getElementById('result').innerHTML = '<div class="error">Please choose 11 unique players (duplicates found).</div>';
+    return;
+  }
+
+  // look up ratings
+  const details = chosen.map(name => {
+    const p = players.find(x => x.name === name);
+    const rating = p ? p.rating : 0;
+    return { name, rating };
+  });
+
+  // compute average
+  const sum = details.reduce((s,d) => s + Number(d.rating), 0);
+  const avg = Math.round((sum / details.length) * 100) / 100;
+
+  // present results
+  let html = `<strong>Team:</strong> ${escapeHtml(teamName)}<br>`;
+  html += `<strong>Average Score (out of 10):</strong> <span class="player-score">${avg}</span><br><br>`;
+  html += `<strong>Selected players and ratings</strong><ul>`;
+  details.forEach(d => {
+    html += `<li>${escapeHtml(d.name)} — <span class="player-score">${d.rating}</span></li>`;
+  });
+  
+
+  document.getElementById('result').innerHTML = html;
+});
+
+// utility escape
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+</script>
+</body>
+</html>
